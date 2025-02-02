@@ -20,7 +20,7 @@
 //! - **custom-protocol**: Feature managed by the Tauri CLI. When enabled, Tauri assumes a production environment instead of a development one.
 //! - **updater**: Enables the application auto updater. Enabled by default if the `updater` config is defined on the `tauri.conf.json` file.
 //! - **devtools**: Enables the developer tools (Web inspector) and [`Window::open_devtools`]. Enabled by default on debug builds.
-//! On macOS it uses private APIs, so you can't enable it if your app will be published to the App Store.
+//!   On macOS it uses private APIs, so you can't enable it if your app will be published to the App Store.
 //! - **shell-open-api**: Enables the [`api::shell`] module.
 //! - **http-api**: Enables the [`api::http`] module.
 //! - **http-multipart**: Adds support to `multipart/form-data` requests.
@@ -471,6 +471,8 @@ impl TryFrom<Icon> for runtime::Icon {
 /// Unless you know what you are doing and are prepared for this type to have breaking changes, do not create it yourself.
 pub struct Context<A: Assets> {
   pub(crate) config: Config,
+  #[cfg(dev)]
+  pub(crate) config_parent: Option<std::path::PathBuf>,
   pub(crate) assets: Arc<A>,
   pub(crate) default_window_icon: Option<Icon>,
   pub(crate) app_icon: Option<Vec<u8>>,
@@ -587,6 +589,8 @@ impl<A: Assets> Context<A> {
   ) -> Self {
     Self {
       config,
+      #[cfg(dev)]
+      config_parent: None,
       assets,
       default_window_icon,
       app_icon,
@@ -597,6 +601,14 @@ impl<A: Assets> Context<A> {
       #[cfg(shell_scope)]
       shell_scope,
     }
+  }
+
+  #[cfg(dev)]
+  #[doc(hidden)]
+  pub fn with_config_parent(&mut self, config_parent: impl AsRef<std::path::Path>) {
+    self
+      .config_parent
+      .replace(config_parent.as_ref().to_owned());
   }
 }
 
@@ -1084,7 +1096,7 @@ mod test_utils {
     fn check_spawn_task(task in "[a-z]+") {
       // create dummy task function
       let dummy_task = async move {
-        format!("{task}-run-dummy-task");
+     let _ =   format!("{task}-run-dummy-task");
       };
       // call spawn
       crate::async_runtime::spawn(dummy_task);

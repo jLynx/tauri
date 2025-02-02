@@ -218,6 +218,8 @@ pub struct InnerWindowManager<R: Runtime> {
   on_page_load: Box<OnPageLoad<R>>,
 
   config: Arc<Config>,
+  #[cfg(dev)]
+  config_parent: Option<std::path::PathBuf>,
   assets: Arc<dyn Assets>,
   pub(crate) default_window_icon: Option<Icon>,
   pub(crate) app_icon: Option<Vec<u8>>,
@@ -325,6 +327,8 @@ impl<R: Runtime> WindowManager<R> {
         invoke_handler,
         on_page_load,
         config: Arc::new(context.config),
+        #[cfg(dev)]
+        config_parent: context.config_parent,
         assets: context.assets,
         default_window_icon: context.default_window_icon,
         app_icon: context.app_icon,
@@ -455,6 +459,7 @@ impl<R: Runtime> WindowManager<R> {
         _ => "".to_string(),
       },
       invoke_key: self.invoke_key(),
+      os_name: std::env::consts::OS,
     }
     .render_default(&Default::default())?;
 
@@ -754,7 +759,7 @@ impl<R: Runtime> WindowManager<R> {
         .map(|p| p.to_string())
         // the `strip_prefix` only returns None when a request is made to `https://tauri.$P` on Windows
         // where `$P` is not `localhost/*`
-        .unwrap_or_else(|| "".to_string());
+        .unwrap_or_default();
       let asset = manager.get_asset(path)?;
       let mut builder = HttpResponseBuilder::new()
         .header("Access-Control-Allow-Origin", &window_origin)
@@ -1192,6 +1197,11 @@ impl<R: Runtime> WindowManager<R> {
 
   pub fn config(&self) -> Arc<Config> {
     self.inner.config.clone()
+  }
+
+  #[cfg(dev)]
+  pub fn config_parent(&self) -> Option<&std::path::PathBuf> {
+    self.inner.config_parent.as_ref()
   }
 
   pub fn package_info(&self) -> &PackageInfo {

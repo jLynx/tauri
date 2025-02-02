@@ -55,7 +55,7 @@ fn copy_binaries(
       .to_string_lossy()
       .replace(&format!("-{target_triple}"), "");
 
-    if package_name.map_or(false, |n| n == &file_name) {
+    if package_name == Some(&file_name) {
       return Err(anyhow::anyhow!(
         "Cannot define a sidecar with the same name as the Cargo package name `{}`. Please change the sidecar name in the filesystem and the Tauri configuration.",
         file_name
@@ -200,6 +200,7 @@ fn has_feature(feature: &str) -> bool {
 // creates a cfg alias if `has_feature` is true.
 // `alias` must be a snake case string.
 fn cfg_alias(alias: &str, has_feature: bool) {
+  println!("cargo:rustc-check-cfg=cfg({alias})");
   if has_feature {
     println!("cargo:rustc-cfg={alias}");
   }
@@ -536,12 +537,19 @@ pub fn try_build(attributes: Attributes) -> Result<()> {
         res.set("FileVersion", version_str);
         res.set("ProductVersion", version_str);
       }
+
       if let Some(product_name) = &config.package.product_name {
         res.set("ProductName", product_name);
       }
-      if let Some(short_description) = &config.tauri.bundle.short_description {
-        res.set("FileDescription", short_description);
-      }
+
+      let file_description = config
+        .package
+        .product_name
+        .or_else(|| manifest.package.as_ref().map(|p| p.name.clone()))
+        .or_else(|| std::env::var("CARGO_PKG_NAME").ok());
+
+      res.set("FileDescription", &file_description.unwrap());
+
       if let Some(copyright) = &config.tauri.bundle.copyright {
         res.set("LegalCopyright", copyright);
       }
